@@ -108,7 +108,13 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 ## Environment variables
 
-Configuration is loaded from repo-root `.env` (and/or process env like `FOO=bar make run`).
+**How settings are read**
+
+On import, `config.py` runs `load_dotenv` against **repo-root** `.env`, then every setting is read with `os.getenv(...)`. You can use `.env`, pure process env, or a mix.
+
+- **`.env`**: optional file for local/servers. If it’s missing, values can still come from the environment (e.g. `make run-pt` sets `MODE=passthrough` in the Makefile and does not require `.env`).
+- **Pre-set env wins over `.file` (default dotenv behavior)**: variables already present in the process environment when Python starts are **not** replaced by the same key from `.env`. So `COZE_API_BASE=https://x.com make run`, `export ...`, systemd `Environment=`, and Docker `-e` / `environment:` override `.env` for those keys. Use a leading `VAR=value` when you need a one-off override.
+- **Makefile `PORT=...`**: only goes to **uvicorn’s `--port`**. The Python `Settings` object in `config.py` does not read `PORT` (it’s a separate concern from the `os.getenv(...)`-backed table below). The root `Dockerfile` runs `uvicorn ... --port ${PORT:-38419}` in the container.
 
 | Variable | Meaning | Default |
 |---|---|---|

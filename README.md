@@ -96,7 +96,13 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 ## 环境变量
 
-所有配置在根目录 `.env`（命令行 `FOO=bar make run` 也同样生效）。
+**程序怎么读到这些值**
+
+启动时 `config.py` 会执行一次 `load_dotenv(仓库根/.env)`：把该文件里 `键=值` 写入**当前进程**的环境。随后所有 `MODE`、`COZE_API_BASE` 等一律用 `os.getenv(...)` 读取。因此配置来源可以是下面任意一种或组合，而不是「只能写 `.env`」。
+
+- **`.env`（仓库根，已被 `.gitignore`）**：适合本地/服务器落盘，不在命令里暴露密钥。没有 `.env` 时，只要环境里已有同名变量，程序照样能跑（例如 `make run-pt` 在 Makefile 里写死了 `MODE=passthrough`，不依赖文件）。
+- **已存在的环境变量优先**：`python-dotenv` 默认**不覆盖**启动前已在进程里出现的变量。因此 `COZE_API_BASE=https://x.com make run`、在 shell 里 `export ...`、systemd 的 `Environment=`、Docker 的 `-e` / `environment:` 所设的键，会压过同名的 `.env` 行。需要临时改一项时用前缀变量最方便。
+- **`PORT` 在 Makefile 里**：`make run PORT=8080` 只把 `8080` 传给**uvicorn 的 `--port`**；`config.py` 不读 `PORT`，和表格里其它用 `os.getenv` 的项不是同一条链。用 Docker 时见根目录 `Dockerfile`：`uvicorn` 用环境变量 `PORT`（默认 `38419`）。
 
 | 变量 | 说明 | 默认 |
 |---|---|---|

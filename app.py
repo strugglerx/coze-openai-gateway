@@ -6,8 +6,8 @@ Routes:
   POST /v1/chat/completions   (OpenAI stream=true|false)
   GET  /health
 
-Spec: see repo-root 目标.md. Domain logic lives in
-`config.py`, `mapping.py`, `upstream.py`; this file is route wiring only.
+Domain logic lives in `config.py`, `mapping.py`, `upstream.py`;
+this file is route wiring only.
 """
 
 from __future__ import annotations
