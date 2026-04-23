@@ -1,6 +1,6 @@
 # coze-openai-gateway
 
-[English README](./README.en.md) · 默认中文
+[English README](./README_EN.md) · 默认中文
 
 把 **Coze Plus 智能体**（`POST /v3/chat`）包装成 **OpenAI 兼容** 的 `/v1/chat/completions` + `/v1/models`，让任何 OpenAI 客户端只需改 `base_url` 就能接上 Coze；通过 `model` 字段切换不同机器人（客服/写作/代码…）。
 
