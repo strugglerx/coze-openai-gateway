@@ -1,0 +1,15 @@
+# 先 `make env` 得 .env。外网/容器监听从在下方改（避免与 .env 里本地 make run 的 PORT 混用）
+name: coze-openai-gateway
+
+services:
+  gateway:
+    build: .
+    image: coze-openai-gateway:latest
+    container_name: coze-openai-gateway
+    env_file: .env
+    environment:
+      # 与 ports 第二段一致，覆盖 .env 里的 PORT，保证映射与 uvicorn 监听对齐
+      PORT: "38419"
+    ports:
+      - "38419:38419"
+    restart: unless-stopped

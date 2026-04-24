@@ -1,6 +1,6 @@
 # coze-openai-gateway
 
-[中文 README](./README.md) · This page is English
+[中文 README](./README.md)
 
 **coze-openai-gateway** wraps **Coze Plus agents** (`POST /v3/chat`, Chat V3) behind an **OpenAI-compatible** surface:
 
@@ -284,6 +284,8 @@ docker build -t coze-openai-gateway .
 docker run --rm -p 38419:38419 --env-file .env coze-openai-gateway
 docker run --rm -p 8080:8080 --env-file .env -e PORT=8080 coze-openai-gateway
 ```
+
+`docker-compose.yml` pins the published/listen **port in the file** (default `38419:38419`; it does not follow `.env`’s `PORT`). You still need a repo-root `.env` for other settings. `make compose` / `make compose-down`; `make image-tar` (default `coze-openai-gateway.image.tar`); `docker load -i <file>` to import the tarball.
 
 ---
 

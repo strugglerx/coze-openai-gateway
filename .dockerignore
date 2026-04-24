@@ -1,0 +1,12 @@
+.venv
+.git
+__pycache__
+*.pyc
+.env
+test
+docs
+*.md
+Makefile
+docker-compose*.yml
+*.image.tar
+*.tar
