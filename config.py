@@ -36,6 +36,9 @@ class Settings:
     ordered_models: tuple[str, ...] = field(default_factory=tuple)
     log_level: str = "INFO"
     log_sse_events: bool = False
+    # 是否输出「统一响应协议」扩展：非流式 `x_agent`、流式 `agent.event`
+    x_agent_protocol: bool = False
+    x_agent_max_stream_events: int = 40
 
     @property
     def is_passthrough(self) -> bool:
@@ -178,6 +181,27 @@ def _parse_mode(raw: str) -> str:
     return MODE_MAPPED
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    v = (os.getenv(name) or "").strip().lower()
+    if not v:
+        return default
+    if v in ("0", "false", "no", "off", "n"):
+        return False
+    if v in ("1", "true", "yes", "on", "y"):
+        return True
+    return default
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw, 10)
+    except ValueError:
+        return default
+
+
 def load_settings() -> Settings:
     # passthrough 模式下 COZE_API_BASE 也给个默认，开箱即用
     mode = _parse_mode(os.getenv("MODE", MODE_MAPPED))
@@ -197,6 +221,9 @@ def load_settings() -> Settings:
         log_level=os.getenv("LOG_LEVEL", "INFO").strip() or "INFO",
         log_sse_events=os.getenv("COZE_LOG_SSE", "").strip().lower()
         in ("1", "true", "yes", "on"),
+        # 默认关：Cherry Studio 等会对每条 SSE 做 union(choices, error) 校验，拒绝 agent.event
+        x_agent_protocol=_env_bool("X_AGENT_PROTOCOL", False),
+        x_agent_max_stream_events=_env_int("X_AGENT_MAX_STREAM_EVENTS", 40),
     )
 
 

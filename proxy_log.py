@@ -33,8 +33,12 @@ def request_context(rid: str) -> Iterator[None]:
         _request_id.reset(tok)
 
 
+def get_request_id() -> str:
+    return _request_id.get() or ""
+
+
 def req_prefix() -> str:
-    rid = _request_id.get()
+    rid = get_request_id()
     return f"rid={rid} " if rid else ""
 
 

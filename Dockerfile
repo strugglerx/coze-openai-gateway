@@ -10,7 +10,7 @@ COPY requirements.txt ./
 RUN pip install -r requirements.txt
 
 # 仅拷贝运行所需文件（不包含 .env）
-COPY app.py config.py mapping.py upstream.py proxy_log.py ./
+COPY app.py config.py mapping.py upstream.py proxy_log.py x_agent_map.py ./
 
 EXPOSE 38419
 

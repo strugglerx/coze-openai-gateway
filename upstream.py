@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+import uuid
 from typing import AsyncIterator, Optional
 
 import httpx
@@ -16,7 +17,15 @@ from mapping import (
     extract_delta_text,
     new_chat_id,
 )
-from proxy_log import get_logger, req_prefix
+from proxy_log import get_logger, get_request_id, req_prefix
+from x_agent_map import (
+    build_agent_event_envelope,
+    build_x_agent_root,
+    fold_events_for_x_agent,
+    first_conversation_id_from_traces,
+    map_coze_sse_to_inner_event,
+    new_evt_id,
+)
 
 logger = get_logger("upstream")
 
@@ -92,11 +101,12 @@ async def _read_error(r: httpx.Response) -> str:
 
 
 async def collect_stream(
-    url: str, payload: dict, headers: dict
-) -> tuple[str, Optional[dict], Optional[str]]:
-    """Consume the upstream SSE and return (text, usage, error_message)."""
+    url: str, payload: dict, headers: dict, *, enable_x_agent: bool
+) -> tuple[str, Optional[dict], Optional[str], Optional[dict]]:
+    """Consume the upstream SSE and return (text, usage, error_message, x_agent|None)."""
     parts: list[str] = []
     usage: Optional[dict] = None
+    coze_traces: list[tuple[str, dict]] = []
     bot_id = payload.get("bot_id", "?")
     logger.info("%supstream_req POST %s bot_id=%s", req_prefix(), url, bot_id)
     n_events = 0
@@ -111,9 +121,11 @@ async def collect_stream(
                     r.status_code,
                     err_body[:200],
                 )
-                return "", None, err_body
+                return "", None, err_body, None
             async for ev, obj in _iter_sse_events(r):
                 n_events += 1
+                if enable_x_agent:
+                    coze_traces.append((ev, obj))
                 if settings.log_sse_events:
                     logger.debug("%ssse event=%s", req_prefix(), ev)
                 if ev == "conversation.message.delta":
@@ -138,7 +150,7 @@ async def collect_stream(
                         else str(err or obj.get("msg") or "stream error")
                     )
                     logger.warning("%supstream_sse_error %s", req_prefix(), msg[:300])
-                    return "".join(parts), usage, msg
+                    return "".join(parts), usage, msg, None
                 elif ev == "conversation.stream.done":
                     break
     text = "".join(parts)
@@ -150,18 +162,36 @@ async def collect_stream(
         len(text),
         usage is not None,
     )
-    return text, usage, None
+    x_agent: Optional[dict] = None
+    if enable_x_agent and coze_traces:
+        rid = get_request_id()
+        trace_id = f"trace_{rid}" if rid else f"trace_{uuid.uuid4().hex[:8]}"
+        conv = first_conversation_id_from_traces(coze_traces)
+        evs = fold_events_for_x_agent(coze_traces)
+        x_agent = build_x_agent_root(
+            trace_id=trace_id,
+            conversation_id=conv,
+            run_id=None,
+            events=evs,
+            status="completed",
+            status_detail={"code": "coze.chat.completed", "label": "对话完成"},
+            meta_extra={"coze_trace_events": len(coze_traces)},
+        )
+    return text, usage, None, x_agent
 
 
 async def stream_to_openai_sse(
-    url: str, payload: dict, headers: dict, model: str
+    url: str, payload: dict, headers: dict, model: str, *, enable_x_agent: bool
 ) -> AsyncIterator[str]:
-    """Proxy upstream SSE → OpenAI `chat.completion.chunk` SSE."""
+    """Proxy upstream SSE → OpenAI `chat.completion.chunk` SSE，可选夹带 `agent.event`。"""
     chat_id = new_chat_id()
     created = int(time.time())
     finished = False
     delta_seen = False
     bot_id = payload.get("bot_id", "?")
+    max_agent = settings.x_agent_max_stream_events
+    ag_emit = 0
+    ag_step = 0
     logger.info("%supstream_req POST %s bot_id=%s (stream)", req_prefix(), url, bot_id)
     delta_chars = 0
 
@@ -183,6 +213,13 @@ async def stream_to_openai_sse(
             async for ev, obj in _iter_sse_events(r):
                 if settings.log_sse_events:
                     logger.debug("%ssse event=%s", req_prefix(), ev)
+                if enable_x_agent and ag_emit < max_agent:
+                    inner = map_coze_sse_to_inner_event(ev, obj, ag_step)
+                    if inner is not None:
+                        yield f"data: {json.dumps(build_agent_event_envelope(inner, created, new_evt_id()), ensure_ascii=False)}\n\n"
+                        ag_step += 1
+                        ag_emit += 1
+
                 if ev == "conversation.message.delta":
                     t = extract_delta_text(obj)
                     if t:

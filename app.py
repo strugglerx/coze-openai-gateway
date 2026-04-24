@@ -49,15 +49,30 @@ def _snippet(text: str, max_len: int = 160) -> str:
     return (s[:max_len] + "…") if len(s) > max_len else s
 
 
+def _effective_x_agent(request: Request) -> bool:
+    """Cherry Studio 等客户端只接受每条 SSE 为 chat.completion.chunk 或 error；见 _env 默认与头覆盖。"""
+    h = (
+        request.headers.get("X-Coze-X-Agent")
+        or request.headers.get("x-coze-x-agent")
+        or ""
+    ).strip().lower()
+    if h in ("0", "false", "no", "off", "n"):
+        return False
+    if h in ("1", "true", "yes", "on", "y"):
+        return True
+    return settings.x_agent_protocol
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     configure(settings)
     logger.info(
-        "coze_proxy mode=%s upstream=%s log_level=%s sse_debug=%s",
+        "coze_proxy mode=%s upstream=%s log_level=%s sse_debug=%s x_agent=%s",
         settings.mode,
         settings.upstream_url or "(unconfigured)",
         settings.log_level,
         settings.log_sse_events,
+        settings.x_agent_protocol,
     )
     grouped: dict[str, list[str]] = {}
     for m in settings.ordered_models:
@@ -73,7 +88,7 @@ async def _lifespan(app: FastAPI):
 
 app = FastAPI(
     title="coze-openai-gateway",
-    version="0.3.0",
+    version="0.4.0",
     lifespan=_lifespan,
 )
 
@@ -106,6 +121,7 @@ async def health():
         "ok": True,
         "mode": settings.mode,
         "upstream_configured": bool(settings.coze_api_base),
+        "x_agent_protocol": settings.x_agent_protocol,
     }
 
 
@@ -190,6 +206,7 @@ async def chat_completions(request: Request):
         "Content-Type": "application/json",
         "Accept": "text/event-stream",
     }
+    use_x_agent = _effective_x_agent(request)
 
     if stream:
 
@@ -198,7 +215,9 @@ async def chat_completions(request: Request):
                 n_chunks = 0
                 out_bytes = 0
                 try:
-                    async for line in stream_to_openai_sse(url, payload, headers, model):
+                    async for line in stream_to_openai_sse(
+                        url, payload, headers, model, enable_x_agent=use_x_agent
+                    ):
                         n_chunks += 1
                         out_bytes += len(line.encode("utf-8", errors="replace"))
                         yield line
@@ -214,7 +233,9 @@ async def chat_completions(request: Request):
         return StreamingResponse(logged_sse(), media_type="text/event-stream")
 
     with request_context(rid):
-        content, usage, upstream_err = await collect_stream(url, payload, headers)
+        content, usage, upstream_err, x_agent = await collect_stream(
+            url, payload, headers, enable_x_agent=use_x_agent
+        )
         elapsed_ms = (time.monotonic() - t0) * 1000
         if upstream_err is not None:
             logger.warning(
@@ -232,4 +253,6 @@ async def chat_completions(request: Request):
             elapsed_ms,
             _snippet(content),
         )
-        return JSONResponse(completion_response(model, content, usage))
+        if x_agent is not None:
+            x_agent["meta"]["latency_ms"] = int(elapsed_ms)
+        return JSONResponse(completion_response(model, content, usage, x_agent))

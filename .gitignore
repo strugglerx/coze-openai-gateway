@@ -4,7 +4,9 @@ test/.env
 __pycache__/
 *.pyc
 .Python
-docs
+# 本地杂项文档不跟踪，唯统一响应协议可入库
+docs/*
+!docs/统一响应协议.md
 test
 *.image.tar
 *.tar

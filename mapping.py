@@ -142,9 +142,11 @@ def new_chat_id() -> str:
     return f"chatcmpl-{uuid.uuid4().hex[:12]}"
 
 
-def completion_response(model: str, content: str, usage: dict | None) -> dict:
+def completion_response(
+    model: str, content: str, usage: dict | None, x_agent: dict | None = None
+) -> dict:
     u = usage or {}
-    return {
+    d: dict[str, Any] = {
         "id": new_chat_id(),
         "object": "chat.completion",
         "created": int(time.time()),
@@ -162,6 +164,9 @@ def completion_response(model: str, content: str, usage: dict | None) -> dict:
             "total_tokens": u.get("total_tokens", 0),
         },
     }
+    if x_agent is not None:
+        d["x_agent"] = x_agent
+    return d
 
 
 def chunk_content(chat_id: str, created: int, model: str, text: str) -> dict:
