@@ -17,6 +17,7 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Optional
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from config import settings
@@ -67,12 +68,13 @@ def _effective_x_agent(request: Request) -> bool:
 async def _lifespan(app: FastAPI):
     configure(settings)
     logger.info(
-        "coze_proxy mode=%s upstream=%s log_level=%s sse_debug=%s x_agent=%s",
+        "coze_proxy mode=%s upstream=%s log_level=%s sse_debug=%s x_agent=%s cors=%s",
         settings.mode,
         settings.upstream_url or "(unconfigured)",
         settings.log_level,
         settings.log_sse_events,
         settings.x_agent_protocol,
+        settings.cors_enabled,
     )
     grouped: dict[str, list[str]] = {}
     for m in settings.ordered_models:
@@ -91,6 +93,25 @@ app = FastAPI(
     version="0.4.0",
     lifespan=_lifespan,
 )
+
+if settings.cors_enabled:
+    allow_origins = list(settings.cors_allow_origins)
+    allow_origin_regex = settings.cors_allow_origin_regex
+    # 兼容“* + credentials”场景：用正则匹配并回显具体 Origin，避免浏览器拒绝。
+    if "*" in allow_origins and settings.cors_allow_credentials and not allow_origin_regex:
+        allow_origins = []
+        allow_origin_regex = ".*"
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=allow_origins,
+        allow_origin_regex=allow_origin_regex,
+        allow_methods=list(settings.cors_allow_methods),
+        allow_headers=list(settings.cors_allow_headers),
+        expose_headers=list(settings.cors_expose_headers),
+        allow_credentials=settings.cors_allow_credentials,
+        max_age=settings.cors_max_age,
+    )
 
 
 def _error(message: str, status: int, kind: str = "invalid_request_error") -> JSONResponse:

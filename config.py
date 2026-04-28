@@ -39,6 +39,14 @@ class Settings:
     # 是否输出「统一响应协议」扩展：非流式 `x_agent`、流式 `agent.event`
     x_agent_protocol: bool = False
     x_agent_max_stream_events: int = 40
+    cors_enabled: bool = False
+    cors_allow_origins: tuple[str, ...] = field(default_factory=tuple)
+    cors_allow_origin_regex: str | None = None
+    cors_allow_methods: tuple[str, ...] = ("GET", "POST", "OPTIONS")
+    cors_allow_headers: tuple[str, ...] = ("*",)
+    cors_expose_headers: tuple[str, ...] = field(default_factory=tuple)
+    cors_allow_credentials: bool = False
+    cors_max_age: int = 600
 
     @property
     def is_passthrough(self) -> bool:
@@ -202,6 +210,22 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_list(name: str, default: tuple[str, ...]) -> tuple[str, ...]:
+    raw = (os.getenv(name) or "").strip()
+    if not raw:
+        return default
+    if raw.startswith("["):
+        try:
+            obj = json.loads(raw)
+        except json.JSONDecodeError:
+            obj = None
+        if isinstance(obj, list):
+            vals = [str(x).strip() for x in obj if str(x).strip()]
+            return tuple(vals) if vals else default
+    vals = [part.strip() for part in raw.split(",") if part.strip()]
+    return tuple(vals) if vals else default
+
+
 def load_settings() -> Settings:
     # passthrough 模式下 COZE_API_BASE 也给个默认，开箱即用
     mode = _parse_mode(os.getenv("MODE", MODE_MAPPED))
@@ -224,6 +248,14 @@ def load_settings() -> Settings:
         # 默认关：Cherry Studio 等会对每条 SSE 做 union(choices, error) 校验，拒绝 agent.event
         x_agent_protocol=_env_bool("X_AGENT_PROTOCOL", False),
         x_agent_max_stream_events=_env_int("X_AGENT_MAX_STREAM_EVENTS", 40),
+        cors_enabled=_env_bool("CORS_ENABLED", False),
+        cors_allow_origins=_env_list("CORS_ALLOW_ORIGINS", ("*",)),
+        cors_allow_origin_regex=(os.getenv("CORS_ALLOW_ORIGIN_REGEX") or "").strip() or None,
+        cors_allow_methods=_env_list("CORS_ALLOW_METHODS", ("*",)),
+        cors_allow_headers=_env_list("CORS_ALLOW_HEADERS", ("*",)),
+        cors_expose_headers=_env_list("CORS_EXPOSE_HEADERS", ()),
+        cors_allow_credentials=_env_bool("CORS_ALLOW_CREDENTIALS", False),
+        cors_max_age=_env_int("CORS_MAX_AGE", 600),
     )
 
 
