@@ -10,3 +10,4 @@ docs/*
 test
 *.image.tar
 *.tar
+dist
