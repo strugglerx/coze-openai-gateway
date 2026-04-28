@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 import uuid
 from typing import Any, Optional
@@ -41,17 +42,29 @@ def _strip_group_prefix(model: str, s: Settings) -> Optional[str]:
     return None
 
 
+_PERSONA_SUFFIX = re.compile(r"^(.*?)-persona-(\d+)$", re.IGNORECASE)
+
+
+def _strip_persona_suffix(model: str) -> str:
+    """支持把模型别名 `xxx-persona-19` 还原成 `xxx`，便于继续走 BOT_CONFIG 映射。"""
+    m = _PERSONA_SUFFIX.match(model)
+    if not m:
+        return model
+    return (m.group(1) or "").strip("- ") or model
+
+
 def resolve_bot_id(model: str, s: Settings) -> str:
     """passthrough 模式直接把 model 当 bot_id；mapped 模式走 BOT_CONFIG / BOT_ID。
 
     mapped 下先精确匹配 BOT_CONFIG 键；若没命中且 model 形如 `{group}-{name}`，
     就剥去已知分组前缀再查一次。兜底回落到 BOT_ID。
     """
+    model_key = _strip_persona_suffix(model)
     if s.is_passthrough:
-        return model
-    if model in s.bot_config:
-        return s.bot_config[model]
-    stripped = _strip_group_prefix(model, s)
+        return model_key
+    if model_key in s.bot_config:
+        return s.bot_config[model_key]
+    stripped = _strip_group_prefix(model_key, s)
     if stripped is not None:
         return s.bot_config[stripped]
     return s.bot_id

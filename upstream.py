@@ -142,6 +142,8 @@ async def collect_stream(
                     rri = obj.get("run_record_item")
                     if isinstance(rri, dict) and isinstance(rri.get("usage"), dict):
                         usage = rri["usage"]
+                    if not enable_x_agent:
+                        break
                 elif ev == "conversation.error":
                     err = obj.get("error")
                     msg = (
@@ -241,6 +243,9 @@ async def stream_to_openai_sse(
                     )
                     yield f"data: {json.dumps(chunk_done(chat_id, created, model, usage), ensure_ascii=False)}\n\n"
                     finished = True
+                    # 标准 OpenAI 模式（无 agent.event）：不再消费上游尾部事件（如追问建议），尽早发 [DONE]。
+                    if not enable_x_agent:
+                        break
 
                 elif ev == "conversation.error":
                     err = obj.get("error")

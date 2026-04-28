@@ -220,6 +220,8 @@ Supported fields:
 | `user` | optional; becomes upstream `user_id` (fallback: `COZE_USER_ID`) |
 | `conversation_id` | OpenAI extension; mapped to upstream `ConversationID` / `conversation_id` |
 
+**How to pass:** `user` is **optional**. If set, it becomes Coze `user_id` (per-end-user isolation). If omitted, the request uses **`COZE_USER_ID`** from `.env`. `conversation_id` is **optional**: pass the previous round’s conversation id to continue the same thread (see **Continue a conversation**); omit for the first turn or when you don’t need multi-turn context.
+
 **Ignored parameters** (not forwarded; Coze behavior is controlled in the Coze console bot):
 
 `temperature` / `top_p` / `max_tokens` / `stop` / `frequency_penalty` / `presence_penalty` / `n` / `logit_bias` / `tools` / `functions`
@@ -272,6 +274,7 @@ curl -s http://localhost:38419/v1/chat/completions \
   -H "Authorization: Bearer pat_xxxxxxxxxxxxxxxxxx" \
   -d '{
     "model": "kefu",
+    "user": "your-end-user-id",
     "messages": [{"role": "user", "content": "ping"}],
     "stream": false
   }'
@@ -305,6 +308,7 @@ docker run --rm -p 8080:8080 --env-file .env -e PORT=8080 coze-openai-gateway
 | `502 The token you entered is incorrect...` | invalid/expired PAT |
 | `200` but empty assistant `content` | bot not published to token’s workspace, or upstream didn’t emit an `answer`-type completion; inspect proxy logs |
 | Cherry Studio `AI_TypeValidationError` / `invalid_union` (`choices` or `error`) | Do not enable `X_AGENT_PROTOCOL` for strict OpenAI clients, or set `0`; if enabled globally, send `X-Coze-X-Agent: 0` on that request |
+| Stream stalls after assistant text until more time passes (e.g. follow-up suggestions configured in Coze) | Coze may emit events after `conversation.chat.completed`. In **standard mode** (no `X_AGENT` / no `agent.event`), the proxy closes the SSE right after `chat.completed` and sends `[DONE]`, without draining the tail suggestion stream; enable extensions if you need those events |
 
 ---
 

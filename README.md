@@ -236,6 +236,7 @@ BOT_CONFIG='{"kefu":"7628929501656973364","writer":"7345111111111111","coder":"7
 | `user`            | 可选；作为上游 `user_id`。未传则用 `COZE_USER_ID`                            |
 | `conversation_id` | **OpenAI 扩展字段**；会映射为上游 `ConversationID`/`conversation_id`，用于续接会话 |
 
+**怎么传：** `user` **可选**。传了即作为 Coze 的 `user_id`，用来区分终端用户（多租户隔离）；**不传**则本条请求一律用 `.env` 里的 **`COZE_USER_ID`**。`conversation_id` **可选**：续聊时在**同一业务用户**下沿用上一轮会话 ID（见 **续接会话**）；首轮或未做多轮上下文可省略。
 
 **被忽略的字段**（Coze 生成行为完全由控制台 Bot 配置决定，不做假装兼容）：
 `temperature` / `top_p` / `max_tokens` / `stop` / `frequency_penalty` / `presence_penalty` / `n` / `logit_bias` / `tools` / `functions`
@@ -295,6 +296,7 @@ curl -s http://localhost:38419/v1/chat/completions \
   -H "Authorization: Bearer pat_xxxxxxxxxxxxxxxxxx" \
   -d '{
     "model": "kefu",
+    "user": "your-end-user-id",
     "messages": [{"role": "user", "content": "ping"}],
     "stream": false
   }'
@@ -330,6 +332,7 @@ docker run --rm -p 8080:8080 --env-file .env -e PORT=8080 coze-openai-gateway
 | `502 The token you entered is incorrect...`                       | PAT 错/过期，更新 `.env` 或客户端 Authorization                                                    |
 | `200` 但 `content` 为空字符串                                           | Bot 未发布到该 PAT 所在空间，或 Bot 本身没输出 `type=answer` 的消息；看代理日志里的 `conversation.message.delta` 事件 |
 | Cherry Studio `AI_TypeValidationError` / `invalid_union`（`choices` 或 `error`） | 流式里不能夹带 `agent.event`。**不要**开 `X_AGENT_PROTOCOL`，或设 `0`；若全局已开则加请求头 `X-Coze-X-Agent: 0` |
+| 开了「随机建议问题」等导致**正文都出完了还要等一会** `stream` 才结束 | Coze 还会在 `conversation.chat.completed` 后继续推尾部事件。**标准模式**（关 `X_AGENT`，无 `agent.event`）下，代理在 `chat.completed` 后即结束 SSE、发 `[DONE]`，不再等建议流；需要过程/建议时请开 `X_AGENT_PROTOCOL`（或头 `X-Coze-X-Agent: 1`） |
 | 504/超时                                                            | 上游生成慢；如机器人触发了长工作流，考虑将客户端 timeout 调大                                                      |
 
 
