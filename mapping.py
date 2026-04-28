@@ -43,6 +43,7 @@ def _strip_group_prefix(model: str, s: Settings) -> Optional[str]:
 
 
 _PERSONA_SUFFIX = re.compile(r"^(.*?)-persona-(\d+)$", re.IGNORECASE)
+_BOT_ID_PATTERN = re.compile(r"^\d{16,32}$")
 
 
 def _strip_persona_suffix(model: str) -> str:
@@ -51,6 +52,10 @@ def _strip_persona_suffix(model: str) -> str:
     if not m:
         return model
     return (m.group(1) or "").strip("- ") or model
+
+
+def _looks_like_bot_id(model: str) -> bool:
+    return bool(_BOT_ID_PATTERN.match((model or "").strip()))
 
 
 def resolve_bot_id(model: str, s: Settings) -> str:
@@ -67,6 +72,9 @@ def resolve_bot_id(model: str, s: Settings) -> str:
     stripped = _strip_group_prefix(model_key, s)
     if stripped is not None:
         return s.bot_config[stripped]
+    # mapped 模式下：若显式传入的是 bot_id（纯数字长串），优先直连该 bot。
+    if _looks_like_bot_id(model_key):
+        return model_key
     return s.bot_id
 
 

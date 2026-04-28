@@ -175,6 +175,7 @@ PORT=38419
 2. 解析 bot_id:
    - X 是 BOT_CONFIG 的键 ⇒ bot_id = BOT_CONFIG[X]
    - 否则若 X 形如 `{group}-{name}` 且能剥前缀命中 ⇒ bot_id = BOT_CONFIG[name]
+   - 否则若 X 看起来是 Coze bot_id（16~32 位数字）⇒ bot_id = X
    - 否则                 ⇒ bot_id = BOT_ID
    - BOT_ID 还为空        ⇒ 500 (请检查 .env)
 

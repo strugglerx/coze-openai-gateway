@@ -186,6 +186,7 @@ PORT=38419
 2) resolve bot_id:
    - if X is a key in BOT_CONFIG => BOT_CONFIG[X]
    - else if X looks like "{group}-{name}" and stripping a known group prefix yields a key => BOT_CONFIG[name]
+   - else if X looks like a Coze bot_id (16-32 digits) => bot_id = X
    - else BOT_ID
    - if BOT_ID is empty => 500
 
