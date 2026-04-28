@@ -303,6 +303,13 @@ docker run --rm -p 8080:8080 --env-file .env -e PORT=8080 coze-openai-gateway
 
 `docker-compose.yml` pins the published/listen **port in the file** (default `38419:38419`; it does not follow `.env`’s `PORT`). You still need a repo-root `.env` for other settings. `make compose` / `make compose-down`; `make image-tar` (default `coze-openai-gateway.image.tar`); `docker load -i <file>` to import the tarball.
 
+For offline handoff, use `make export-linux-amd64-zip`. It generates `dist/coze-openai-gateway-linux-amd64.zip` containing the image tar, `.env.example`, `.docker-compose.yml`, `start-server.sh`, and `stop-server.sh`. After unzip on target host:
+
+```bash
+./start-server.sh    # optional arg: image tar path
+./stop-server.sh
+```
+
 ---
 
 ## Troubleshooting

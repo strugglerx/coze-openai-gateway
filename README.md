@@ -326,6 +326,13 @@ docker run --rm -p 8080:8080 --env-file .env -e PORT=8080 coze-openai-gateway
 
 同目录有 `docker-compose.yml`：宿主机/容器端口**写死在本文件**（默认 `38419:38419`；勿依赖 `.env` 的 `PORT`）。需先有仓库根 `.env`（`make env` 或自建）。`make compose` / `make compose-down`。镜像离线包：`make image-tar`（默认 `coze-openai-gateway.image.tar`），对端 `docker load -i …` 导入。
 
+离线交付可用：`make export-linux-amd64-zip`，会产出 `dist/coze-openai-gateway-linux-amd64.zip`，内含镜像 tar、`.env.example`、`.docker-compose.yml`、`start-server.sh`、`stop-server.sh`。在目标机器解压后：
+
+```bash
+./start-server.sh    # 可选参数：镜像 tar 路径
+./stop-server.sh
+```
+
 ---
 
 ## 故障排查
