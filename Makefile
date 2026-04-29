@@ -69,7 +69,7 @@ export-linux-amd64-zip:
 	@mkdir -p "$(DIST_DIR)/$(EXPORT_NAME)"
 	@$(MAKE) image-tar PLATFORM=linux/amd64 TAR="$(DIST_DIR)/$(EXPORT_NAME)/$(EXPORT_NAME).image.tar"
 	@cp .env.example "$(DIST_DIR)/$(EXPORT_NAME)/.env.example"
-	@cp docker-compose.yml "$(DIST_DIR)/$(EXPORT_NAME)/.docker-compose.yml"
+	@cp docker-compose.yml "$(DIST_DIR)/$(EXPORT_NAME)/docker-compose.yml"
 	@cp scripts/start-server.sh "$(DIST_DIR)/$(EXPORT_NAME)/start-server.sh"
 	@cp scripts/stop-server.sh "$(DIST_DIR)/$(EXPORT_NAME)/stop-server.sh"
 	@chmod +x "$(DIST_DIR)/$(EXPORT_NAME)/start-server.sh" "$(DIST_DIR)/$(EXPORT_NAME)/stop-server.sh"
